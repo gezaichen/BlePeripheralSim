@@ -1,7 +1,9 @@
 package com.example.bleperipheral
 
 import android.bluetooth.*
-import android.bluetooth.le.*
+import android.bluetooth.le.AdvertiseCallback
+nimport android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertiseSettings
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -19,6 +21,9 @@ class BlePeripheralManager(
         val CHAR_UUID: UUID    = UUID.fromString("0000dcba-0000-1000-8000-00805f9b34fb")
     }
 
+    // 回调数据监听
+    var onDataSent: ((FloatArray) -> Unit)? = null
+
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gattServer: BluetoothGattServer?    = null
     private val clients = mutableSetOf<BluetoothDevice>()
@@ -26,7 +31,6 @@ class BlePeripheralManager(
     private val handler = Handler(Looper.getMainLooper())
     private val intervalMs = 20L // 50Hz
 
-    // ✅ 添加全局变量
     private var notifyCharac: BluetoothGattCharacteristic? = null
 
     private val advertiseCallback = object: AdvertiseCallback() {
@@ -39,7 +43,6 @@ class BlePeripheralManager(
             if (newState == BluetoothProfile.STATE_CONNECTED) clients.add(device)
             else if (newState == BluetoothProfile.STATE_DISCONNECTED) clients.remove(device)
         }
-
         override fun onDescriptorWriteRequest(
             device: BluetoothDevice, requestId: Int, descriptor: BluetoothGattDescriptor,
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray
@@ -67,7 +70,6 @@ class BlePeripheralManager(
         gattServer = btManager.openGattServer(context, gattCallback)
         val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
 
-        // ✅ 构造特征并保存为全局变量
         notifyCharac = BluetoothGattCharacteristic(
             CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_NOTIFY,
@@ -79,8 +81,8 @@ class BlePeripheralManager(
         )
         notifyCharac?.addDescriptor(desc)
         service.addCharacteristic(notifyCharac)
-
         gattServer?.addService(service)
+
         handler.post(sendRunnable)
     }
 
@@ -110,8 +112,8 @@ class BlePeripheralManager(
             frame.forEach { buf.putFloat(it) }
             val bytes = buf.array()
 
-            // ✅ 设置特征值并发送
             notifyCharac?.value = bytes
+            onDataSent?.invoke(frame)  // 回调给 UI
             clients.forEach { dev ->
                 gattServer?.notifyCharacteristicChanged(dev, notifyCharac, false)
             }
