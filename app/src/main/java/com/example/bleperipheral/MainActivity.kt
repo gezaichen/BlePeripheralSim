@@ -1,64 +1,53 @@
 package com.example.bleperipheral
 
-import android.Manifest
-import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothAdapter
+import android.content.Context
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var bleManager: BlePeripheralManager
-    private lateinit var btnStart: Button
-    private lateinit var btnStop: Button
-    private lateinit var dataText: TextView
+
+    private lateinit var blePeripheralManager: BlePeripheralManager
+    private lateinit var startButton: Button
+    private lateinit var stopButton: Button
+    private lateinit var dataTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        btnStart = findViewById(R.id.btnStart)
-        btnStop = findViewById(R.id.btnStop)
-        dataText = findViewById(R.id.dataText)
+        val btAdapter = BluetoothAdapter.getDefaultAdapter()
+        btAdapter.name = "BLEPeripheralSimulator" // 设置广播名称
 
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN,
-                Manifest.permission.BLUETOOTH_ADVERTISE,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ),
-            1
-        )
-
-        val btManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
-        val btAdapter = btManager.adapter
-        bleManager = BlePeripheralManager(this, btAdapter)
-
-        bleManager.onDataSent = { frame ->
+        blePeripheralManager = BlePeripheralManager(this, btAdapter) { bytes ->
             runOnUiThread {
-                dataText.text = frame.joinToString(", ") { String.format("%.1f", it) }
+                val hex = bytes.take(32).joinToString(" ") { String.format("%02X", it) } + " ..."
+                dataTextView.append("\n📤 发送 ${bytes.size} 字节: $hex")
+                if (dataTextView.lineCount > 200) {
+                    dataTextView.text = dataTextView.text.split("\n").takeLast(200).joinToString("\n")
+                }
             }
         }
 
-        btnStart.setOnClickListener {
-            bleManager.start()
-            btnStart.isEnabled = false
-            btnStop.isEnabled = true
-            dataText.text = "开始发送..."
+        startButton = findViewById(R.id.startButton)
+        stopButton = findViewById(R.id.stopButton)
+        dataTextView = findViewById(R.id.dataTextView)
+
+        startButton.setOnClickListener {
+            blePeripheralManager.start()
+            dataTextView.append("\n▶️ 开始广播并发送数据...")
         }
-        btnStop.setOnClickListener {
-            bleManager.stop()
-            btnStart.isEnabled = true
-            btnStop.isEnabled = false
-            dataText.text = "发送已停止"
+
+        stopButton.setOnClickListener {
+            blePeripheralManager.stop()
+            dataTextView.append("\n⏹️ 停止发送")
         }
     }
 
     override fun onDestroy() {
-        bleManager.stop()
         super.onDestroy()
+        blePeripheralManager.stop()
     }
 }
