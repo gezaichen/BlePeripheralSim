@@ -2,19 +2,27 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" ]          # 每次推送到 main 就触发
+  pull_request:
+    branches: [ "main" ]          # PR 也会触发，可按需保留
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest        # 使用 GitHub 默认 Ubuntu Runner
+
     steps:
-    - name: Checkout
+    # 1️⃣ 拉取源码
+    - name: Checkout code
       uses: actions/checkout@v4
-    - name: Set up JDK
+
+    # 2️⃣ 配好 JDK（Android Gradle Plugin 7.x 推荐 Java 17）
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
+
+    # 3️⃣ 缓存 Gradle 依赖（可选但强烈建议，加速后续构建）
     - name: Cache Gradle
       uses: actions/cache@v4
       with:
@@ -23,9 +31,16 @@ jobs:
           ~/.gradle/wrapper
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: ${{ runner.os }}-gradle
+
+    # 4️⃣ 直接用 gradle/gradle-build-action 执行 assembleDebug
     - name: Build Debug APK
-      run: ./gradlew assembleDebug
-    - name: Upload APK
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: "7.6.1"   # 指定要安装的 Gradle 版本
+        arguments: assembleDebug  # 执行的 Gradle 命令
+
+    # 5️⃣ 把产出的 APK 作为 Artifacts 上传，方便下载
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: BLEPeripheral-debug-apk
