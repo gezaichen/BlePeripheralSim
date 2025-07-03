@@ -30,5 +30,4 @@
         android:layout_marginTop="16dp"
         android:background="#EEEEEE"
         android:padding="8dp" />
-
 </LinearLayout>
