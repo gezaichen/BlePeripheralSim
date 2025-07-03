@@ -1,10 +1,7 @@
 package com.example.bleperipheral
 
 import android.bluetooth.*
-import android.bluetooth.le.AdvertiseCallback
-import android.bluetooth.le.AdvertiseData
-import android.bluetooth.le.AdvertiseSettings
-import android.bluetooth.le.BluetoothLeAdvertiser
+import android.bluetooth.le.*
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -12,24 +9,27 @@ import android.os.ParcelUuid
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 
 class BlePeripheralManager(
     private val context: Context,
     private val bluetoothAdapter: BluetoothAdapter
 ) {
     companion object {
-        val SERVICE_UUID: UUID = UUID.fromString("0000abcd-0000-1000-8000-00805f9b34fb")
-        val CHAR_UUID: UUID    = UUID.fromString("0000dcba-0000-1000-8000-00805f9b34fb")
+        val SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb") // 标准心率服务
+        val CHAR_UUID: UUID    = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb") // 心率值特征
     }
 
-    var onDataSent: ((FloatArray) -> Unit)? = null
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gattServer: BluetoothGattServer?    = null
     private val clients = mutableSetOf<BluetoothDevice>()
     private var packetCount = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val intervalMs = 20L // 50Hz
-    private var notifyCharac: BluetoothGattCharacteristic? = null
+
+    var onDataSent: ((FloatArray) -> Unit)? = null
 
     private val advertiseCallback = object: AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {}
@@ -41,6 +41,7 @@ class BlePeripheralManager(
             if (newState == BluetoothProfile.STATE_CONNECTED) clients.add(device)
             else if (newState == BluetoothProfile.STATE_DISCONNECTED) clients.remove(device)
         }
+
         override fun onDescriptorWriteRequest(
             device: BluetoothDevice, requestId: Int, descriptor: BluetoothGattDescriptor,
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray
@@ -67,8 +68,7 @@ class BlePeripheralManager(
         val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         gattServer = btManager.openGattServer(context, gattCallback)
         val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-
-        notifyCharac = BluetoothGattCharacteristic(
+        val charac  = BluetoothGattCharacteristic(
             CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_NOTIFY,
             BluetoothGattCharacteristic.PERMISSION_READ
@@ -77,9 +77,10 @@ class BlePeripheralManager(
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"),
             BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
         )
-        notifyCharac?.addDescriptor(desc)
-        service.addCharacteristic(notifyCharac)
+        charac.addDescriptor(desc)
+        service.addCharacteristic(charac)
         gattServer?.addService(service)
+
         handler.post(sendRunnable)
     }
 
@@ -109,11 +110,13 @@ class BlePeripheralManager(
             frame.forEach { buf.putFloat(it) }
             val bytes = buf.array()
 
-            notifyCharac?.value = bytes
-            onDataSent?.invoke(frame)
+            val charac = gattServer?.getService(SERVICE_UUID)?.getCharacteristic(CHAR_UUID)
             clients.forEach { dev ->
-                gattServer?.notifyCharacteristicChanged(dev, notifyCharac, false)
+                charac?.value = bytes
+                gattServer?.notifyCharacteristicChanged(dev, charac, false)
             }
+
+            onDataSent?.invoke(frame)
             handler.postDelayed(this, intervalMs)
         }
     }
