@@ -1,4 +1,3 @@
-// ✅ BlePeripheralManager.kt
 package com.example.bleperipheral
 
 import android.bluetooth.*
@@ -14,7 +13,7 @@ import java.util.*
 class BlePeripheralManager(
     private val context: Context,
     private val bluetoothAdapter: BluetoothAdapter,
-    private val onSend: (ByteArray) -> Unit // ✅ 新增回调
+    private val onSend: (ByteArray) -> Unit
 ) {
     companion object {
         val SERVICE_UUID: UUID = UUID.fromString("0000f00d-0000-1000-8000-00805f9b34fb")
@@ -28,8 +27,6 @@ class BlePeripheralManager(
     private val handler = Handler(Looper.getMainLooper())
     private val intervalMs = 16L // ~60Hz
 
-    private val advertiseCallback = object : AdvertiseCallback() {}
-
     private val gattCallback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) clients.add(device)
@@ -41,7 +38,9 @@ class BlePeripheralManager(
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray
         ) {
             if (descriptor.uuid == UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")) {
-                if (responseNeeded) gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+                if (responseNeeded) {
+                    gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+                }
             }
         }
     }
@@ -57,10 +56,11 @@ class BlePeripheralManager(
             .setIncludeDeviceName(true)
             .addServiceUuid(ParcelUuid(SERVICE_UUID))
             .build()
-        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        advertiser?.startAdvertising(settings, data, object : AdvertiseCallback() {})
 
         val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         gattServer = btManager.openGattServer(context, gattCallback)
+
         val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
         val charac = BluetoothGattCharacteristic(
             CHAR_UUID,
@@ -81,7 +81,7 @@ class BlePeripheralManager(
     fun stop() {
         handler.removeCallbacks(sendRunnable)
         gattServer?.close()
-        advertiser?.stopAdvertising(advertiseCallback)
+        advertiser?.stopAdvertising(object : AdvertiseCallback() {})
     }
 
     private val sendRunnable = object : Runnable {
@@ -104,7 +104,7 @@ class BlePeripheralManager(
             clients.forEach { dev ->
                 gattServer?.notifyCharacteristicChanged(dev, charac, false)
             }
-            onSend(bytes) // ✅ 数据回调
+            onSend(bytes)
             handler.postDelayed(this, intervalMs)
         }
     }
