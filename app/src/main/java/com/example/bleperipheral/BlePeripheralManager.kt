@@ -1,4 +1,4 @@
-// BlePeripheralManager.kt
+// ✅ BlePeripheralManager.kt
 package com.example.bleperipheral
 
 import android.bluetooth.*
@@ -17,8 +17,8 @@ class BlePeripheralManager(
     private val onSend: (ByteArray) -> Unit // ✅ 新增回调
 ) {
     companion object {
-        val SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
-        val CHAR_UUID: UUID = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb")
+        val SERVICE_UUID: UUID = UUID.fromString("0000f00d-0000-1000-8000-00805f9b34fb")
+        val CHAR_UUID: UUID = UUID.fromString("0000beef-0000-1000-8000-00805f9b34fb")
     }
 
     private var advertiser: BluetoothLeAdvertiser? = null
@@ -104,7 +104,7 @@ class BlePeripheralManager(
             clients.forEach { dev ->
                 gattServer?.notifyCharacteristicChanged(dev, charac, false)
             }
-            onSend(bytes) // ✅ 发送回调
+            onSend(bytes) // ✅ 数据回调
             handler.postDelayed(this, intervalMs)
         }
     }
