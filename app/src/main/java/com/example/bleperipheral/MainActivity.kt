@@ -1,4 +1,3 @@
-// ✅ MainActivity.kt
 package com.example.bleperipheral
 
 import android.bluetooth.BluetoothAdapter
@@ -18,13 +17,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // ✅ Android 12+ 动态申请 BLUETOOTH_ADVERTISE / CONNECT 权限
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val permissions = arrayOf(
+                android.Manifest.permission.BLUETOOTH_ADVERTISE,
+                android.Manifest.permission.BLUETOOTH_CONNECT
+            )
+            requestPermissions(permissions, 1)
+        }
+
+        val btAdapter = BluetoothAdapter.getDefaultAdapter()
+
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
         dataTextView = findViewById(R.id.dataTextView)
 
-        val btAdapter = BluetoothAdapter.getDefaultAdapter()
-        // ❌ 不再设置 btAdapter.name，避免权限问题
-
+        // ✅ 初始化 BLE 外设管理器 + 实时数据显示
         blePeripheralManager = BlePeripheralManager(this, btAdapter) { bytes ->
             runOnUiThread {
                 val hex = bytes.take(20).joinToString(" ") { String.format("%02X", it) }
