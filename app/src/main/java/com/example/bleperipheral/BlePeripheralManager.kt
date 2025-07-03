@@ -2,7 +2,7 @@ package com.example.bleperipheral
 
 import android.bluetooth.*
 import android.bluetooth.le.AdvertiseCallback
-nimport android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.content.Context
 import android.os.Handler
@@ -21,16 +21,13 @@ class BlePeripheralManager(
         val CHAR_UUID: UUID    = UUID.fromString("0000dcba-0000-1000-8000-00805f9b34fb")
     }
 
-    // 回调数据监听
     var onDataSent: ((FloatArray) -> Unit)? = null
-
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gattServer: BluetoothGattServer?    = null
     private val clients = mutableSetOf<BluetoothDevice>()
     private var packetCount = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val intervalMs = 20L // 50Hz
-
     private var notifyCharac: BluetoothGattCharacteristic? = null
 
     private val advertiseCallback = object: AdvertiseCallback() {
@@ -82,7 +79,6 @@ class BlePeripheralManager(
         notifyCharac?.addDescriptor(desc)
         service.addCharacteristic(notifyCharac)
         gattServer?.addService(service)
-
         handler.post(sendRunnable)
     }
 
@@ -113,11 +109,10 @@ class BlePeripheralManager(
             val bytes = buf.array()
 
             notifyCharac?.value = bytes
-            onDataSent?.invoke(frame)  // 回调给 UI
+            onDataSent?.invoke(frame)
             clients.forEach { dev ->
                 gattServer?.notifyCharacteristicChanged(dev, notifyCharac, false)
             }
-
             handler.postDelayed(this, intervalMs)
         }
     }
