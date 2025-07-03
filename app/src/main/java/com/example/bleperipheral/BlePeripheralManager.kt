@@ -26,6 +26,9 @@ class BlePeripheralManager(
     private val handler = Handler(Looper.getMainLooper())
     private val intervalMs = 20L // 50Hz
 
+    // ✅ 添加全局变量
+    private var notifyCharac: BluetoothGattCharacteristic? = null
+
     private val advertiseCallback = object: AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {}
         override fun onStartFailure(errorCode: Int) {}
@@ -63,7 +66,9 @@ class BlePeripheralManager(
         val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         gattServer = btManager.openGattServer(context, gattCallback)
         val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-        val charac  = BluetoothGattCharacteristic(
+
+        // ✅ 构造特征并保存为全局变量
+        notifyCharac = BluetoothGattCharacteristic(
             CHAR_UUID,
             BluetoothGattCharacteristic.PROPERTY_NOTIFY,
             BluetoothGattCharacteristic.PERMISSION_READ
@@ -72,10 +77,10 @@ class BlePeripheralManager(
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"),
             BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
         )
-        charac.addDescriptor(desc)
-        service.addCharacteristic(charac)
-        gattServer?.addService(service)
+        notifyCharac?.addDescriptor(desc)
+        service.addCharacteristic(notifyCharac)
 
+        gattServer?.addService(service)
         handler.post(sendRunnable)
     }
 
@@ -105,10 +110,10 @@ class BlePeripheralManager(
             frame.forEach { buf.putFloat(it) }
             val bytes = buf.array()
 
-            val charac = gattServer?.getService(SERVICE_UUID)?.getCharacteristic(CHAR_UUID)
-            charac?.value = bytes  // ✅ 设置发送内容
+            // ✅ 设置特征值并发送
+            notifyCharac?.value = bytes
             clients.forEach { dev ->
-                gattServer?.notifyCharacteristicChanged(dev, charac, false)
+                gattServer?.notifyCharacteristicChanged(dev, notifyCharac, false)
             }
 
             handler.postDelayed(this, intervalMs)
