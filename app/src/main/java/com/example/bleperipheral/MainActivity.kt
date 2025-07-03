@@ -1,7 +1,6 @@
 package com.example.bleperipheral
 
 import android.bluetooth.BluetoothAdapter
-import android.content.Context
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -19,35 +18,27 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val btAdapter = BluetoothAdapter.getDefaultAdapter()
-        btAdapter.name = "BLEPeripheralSimulator" // 设置广播名称
-
-        blePeripheralManager = BlePeripheralManager(this, btAdapter) { bytes ->
-            runOnUiThread {
-                val hex = bytes.take(32).joinToString(" ") { String.format("%02X", it) } + " ..."
-                dataTextView.append("\n📤 发送 ${bytes.size} 字节: $hex")
-                if (dataTextView.lineCount > 200) {
-                    dataTextView.text = dataTextView.text.split("\n").takeLast(200).joinToString("\n")
-                }
-            }
-        }
+        btAdapter.name = "BLEPeripheralSimulator"
 
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
         dataTextView = findViewById(R.id.dataTextView)
 
+        blePeripheralManager = BlePeripheralManager(this, btAdapter) { bytes ->
+            runOnUiThread {
+                val hex = bytes.take(20).joinToString(" ") { String.format("%02X", it) }
+                dataTextView.text = "\uD83D\uDCCA 正在发送数据 (前20字节):\n$hex"
+            }
+        }
+
         startButton.setOnClickListener {
             blePeripheralManager.start()
-            dataTextView.append("\n▶️ 开始广播并发送数据...")
+            dataTextView.text = "✅ 蓝牙广播已启动，开始发送数据"
         }
 
         stopButton.setOnClickListener {
             blePeripheralManager.stop()
-            dataTextView.append("\n⏹️ 停止发送")
+            dataTextView.text = "⏹️ 蓝牙广播已停止"
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        blePeripheralManager.stop()
     }
 }
