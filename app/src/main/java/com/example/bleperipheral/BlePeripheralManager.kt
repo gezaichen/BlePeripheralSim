@@ -106,9 +106,11 @@ class BlePeripheralManager(
             val bytes = buf.array()
 
             val charac = gattServer?.getService(SERVICE_UUID)?.getCharacteristic(CHAR_UUID)
+            charac?.value = bytes  // ✅ 设置发送内容
             clients.forEach { dev ->
                 gattServer?.notifyCharacteristicChanged(dev, charac, false)
             }
+
             handler.postDelayed(this, intervalMs)
         }
     }
