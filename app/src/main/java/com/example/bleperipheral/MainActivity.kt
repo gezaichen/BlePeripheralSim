@@ -37,10 +37,8 @@ class MainActivity : AppCompatActivity() {
         val btAdapter = btManager.adapter
         bleManager = BlePeripheralManager(this, btAdapter)
 
-        // 设置数据回调，更新 UI
         bleManager.onDataSent = { frame ->
             runOnUiThread {
-                // 将整个帧转换为字符串（可根据需求截断）
                 dataText.text = frame.joinToString(", ") { String.format("%.1f", it) }
             }
         }
